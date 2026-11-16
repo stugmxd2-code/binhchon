@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hệ Thống Bình Chọn 6 Đội Thi</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+  <!-- Header -->
+  <header class="bg-white shadow-sm sticky top-0 z-10">
+    <div class="max-w-5xl mx-auto px-4 py-4 flex justify-between items-center">
+      <div class="flex items-center gap-2">
+        <span class="text-2xl">🏆</span>
+        <h1 class="text-xl font-extrabold text-indigo-600 tracking-tight">BÌNH CHỌN ĐỘI THI</h1>
+      </div>
+      
+      <div id="user-controls" class="flex items-center gap-3">
+        <button onclick="openAdminModal()" class="text-xs font-semibold text-slate-500 hover:text-indigo-600 px-3 py-1.5 rounded-lg border border-slate-200 hover:border-indigo-300 transition">
+          Quản trị viên
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="flex-grow max-w-5xl w-full mx-auto px-4 py-8">
+    
+    <!-- Trạng thái hệ thống -->
+    <div id="status-banner" class="mb-6 p-4 rounded-xl text-center font-semibold hidden"></div>
+
+    <!-- Khu vực đăng nhập Google cho người bình chọn -->
+    <div id="login-box" class="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 text-center max-w-md mx-auto my-8">
+      <div class="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
+        🗳️
+      </div>
+      <h2 class="text-2xl font-bold mb-2">Tham gia bình chọn</h2>
+      <p class="text-slate-500 text-sm mb-6">Đăng nhập bằng Google để xác thực mỗi người 1 lượt bình chọn. Lựa chọn của bạn được bảo mật ẩn danh hoàn toàn.</p>
+      <button onclick="loginWithGoogle()" class="w-full flex items-center justify-center gap-3 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold py-3 px-4 rounded-xl shadow-sm transition">
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-5 h-5" alt="Google">
+        Tiếp tục với Google
+      </button>
+    </div>
+
+    <!-- Khu vực bình chọn (Chỉ hiện khi đã đăng nhập Google) -->
+    <div id="voting-section" class="hidden">
+      <div class="flex flex-wrap justify-between items-center bg-indigo-50 border border-indigo-100 p-4 rounded-xl mb-6 gap-4">
+        <div>
+          <p class="text-sm text-indigo-900">Xin chào, <span id="voter-name" class="font-bold"></span>!</p>
+          <p class="text-xs text-indigo-600">Trạng thái: <span id="vote-status-text" class="font-semibold">Chưa bình chọn</span></p>
+        </div>
+        <button onclick="logout()" class="text-sm bg-white text-slate-600 hover:text-red-600 px-4 py-2 rounded-lg font-medium shadow-sm transition">
+          Đăng xuất
+        </button>
+      </div>
+
+      <h3 class="text-lg font-bold mb-4 text-slate-700">Chọn đội thi bạn yêu thích nhất:</h3>
+      <div id="teams-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <!-- Các thẻ đội thi sẽ được render bằng JS -->
+      </div>
+    </div>
+
+    <!-- Khu vực Admin Dashboard (Chỉ hiện khi đăng nhập cohong@gmail.com) -->
+    <div id="admin-section" class="hidden space-y-6">
+      <div class="bg-slate-900 text-white p-6 rounded-2xl shadow-lg flex flex-wrap justify-between items-center gap-4">
+        <div>
+          <span class="bg-amber-500 text-slate-900 text-xs font-extrabold px-2.5 py-1 rounded uppercase tracking-wider">Admin Panel</span>
+          <h2 class="text-2xl font-bold mt-2">Bảng Điều Khiển & Kết Quả</h2>
+          <p class="text-slate-400 text-sm">Tài khoản: cohong@gmail.com</p>
+        </div>
+        <div class="flex flex-wrap gap-3">
+          <button id="toggle-lock-btn" onclick="toggleVotingLock()" class="px-5 py-2.5 rounded-xl font-bold text-sm shadow transition">
+            Đang tải...
+          </button>
+          <button onclick="resetAllVotes()" class="bg-red-600/20 hover:bg-red-600 text-red-300 hover:text-white border border-red-500/30 px-4 py-2.5 rounded-xl font-semibold text-sm transition">
+            Reset Phiếu
+          </button>
+          <button onclick="logout()" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2.5 rounded-xl font-semibold text-sm transition">
+            Thoát Admin
+          </button>
+        </div>
+      </div>
+
+      <!-- Thống kê tổng quan -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+          <p class="text-sm text-slate-500 font-medium">Tổng số lượt bình chọn</p>
+          <p id="total-votes-count" class="text-4xl font-extrabold text-indigo-600 mt-1">0</p>
+        </div>
+        <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+          <p class="text-sm text-slate-500 font-medium">Trạng thái cổng bình chọn</p>
+          <p id="admin-lock-status" class="text-2xl font-bold mt-2">---</p>
+        </div>
+      </div>
+
+      <!-- Bảng kết quả chi tiết -->
+      <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+        <h3 class="text-lg font-bold mb-6">Kết quả bình chọn trực tiếp (Ẩn danh)</h3>
+        <div id="results-container" class="space-y-5">
+          <!-- Thanh tiến trình kết quả render bằng JS -->
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Modal Đăng nhập Admin -->
+  <div id="admin-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-bold">Đăng nhập Quản trị viên</h3>
+        <button onclick="closeAdminModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+      </div>
+      <form onsubmit="loginAdmin(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Email Admin</label>
+          <input type="email" id="admin-email" value="cohong@gmail.com" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Mật khẩu</label>
+          <input type="password" id="admin-password" placeholder="Nhập mật khẩu..." required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        </div>
+        <p id="admin-error" class="text-red-500 text-xs hidden"></p>
+        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl transition">
+          Đăng nhập
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Firebase SDKs -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+    import { 
+      getAuth, GoogleAuthProvider, signInWithPopup, 
+      signInWithEmailAndPassword, signOut, onAuthStateChanged 
+    } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+    import { 
+      getFirestore, doc, getDoc, setDoc, updateDoc, 
+      onSnapshot, collection, increment, writeBatch, getDocs 
+    } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBRcLAgxOGprZ1nInFqYtF-PEo9rxg15bw",
+      authDomain: "db-hongtin.firebaseapp.com",
+      projectId: "db-hongtin",
+      storageBucket: "db-hongtin.firebasestorage.app",
+      messagingSenderId: "512707975343",
+      appId: "1:512707975343:web:4d9ed4bb8831634c5a5c5a",
+      measurementId: "G-T66TSGZTJC"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const ADMIN_EMAIL = "cohong@gmail.com";
+
+    const TEAMS = [
+      { id: "doi_1", name: "Đội 1", color: "from-blue-500 to-indigo-600" },
+      { id: "doi_2", name: "Đội 2", color: "from-emerald-500 to-teal-600" },
+      { id: "doi_3", name: "Đội 3", color: "from-orange-500 to-amber-600" },
+      { id: "doi_4", name: "Đội 4", color: "from-purple-500 to-fuchsia-600" },
+      { id: "doi_5", name: "Đội 5", color: "from-rose-500 to-pink-600" },
+      { id: "doi_6", name: "Đội 6", color: "from-cyan-500 to-sky-600" }
+    ];
+
+    let isVotingOpen = true;
+    let currentUser = null;
+    let userVotedTeam = null;
+    let voteCounts = { doi_1: 0, doi_2: 0, doi_3: 0, doi_4: 0, doi_5: 0, doi_6: 0 };
+
+    // Khởi tạo dữ liệu mặc định trên Firestore nếu chưa có
+    async function initDatabaseIfNeeded() {
+      const settingsRef = doc(db, "system", "settings");
+      const settingsSnap = await getDoc(settingsRef);
+      if (!settingsSnap.exists()) {
+        await setDoc(settingsRef, { isOpen: true });
+      }
+
+      const tallyRef = doc(db, "system", "tally");
+      const tallySnap = await getDoc(tallyRef);
+      if (!tallySnap.exists()) {
+        await setDoc(tallyRef, { doi_1: 0, doi_2: 0, doi_3: 0, doi_4: 0, doi_5: 0, doi_6: 0 });
+      }
+    }
+
+    // Lắng nghe trạng thái khóa/mở bình chọn thời gian thực
+    onSnapshot(doc(db, "system", "settings"), (docSnap) => {
+      if (docSnap.exists()) {
+        isVotingOpen = docSnap.data().isOpen;
+        updateUIState();
+      }
+    });
+
+    // Lắng nghe kết quả phiếu bầu (Chỉ hoạt động khi Admin có quyền đọc)
+    function listenToTally() {
+      onSnapshot(doc(db, "system", "tally"), (docSnap) => {
+        if (docSnap.exists()) {
+          voteCounts = docSnap.data();
+          renderAdminResults();
+        }
+      }, (error) => {
+        // Người dùng thường không có quyền đọc tally (bảo mật)
+      });
+    }
+
+    // Theo dõi trạng thái đăng nhập
+    onAuthStateChanged(auth, async (user) => {
+      currentUser = user;
+      if (user) {
+        if (user.email === ADMIN_EMAIL) {
+          await initDatabaseIfNeeded();
+          document.getElementById("login-box").classList.add("hidden");
+          document.getElementById("voting-section").classList.add("hidden");
+          document.getElementById("admin-section").classList.remove("hidden");
+          listenToTally();
+        } else {
+          document.getElementById("login-box").classList.add("hidden");
+          document.getElementById("admin-section").classList.add("hidden");
+          document.getElementById("voting-section").classList.remove("hidden");
+          document.getElementById("voter-name").textContent = user.displayName || "Người bình chọn";
+          await checkUserVote(user.uid);
+        }
+      } else {
+        userVotedTeam = null;
+        document.getElementById("login-box").classList.remove("hidden");
+        document.getElementById("voting-section").classList.add("hidden");
+        document.getElementById("admin-section").classList.add("hidden");
+      }
+      updateUIState();
+    });
+
+    // Kiểm tra xem user đã vote chưa (chỉ lưu UID và đội đã chọn, không lưu tên/email)
+    async function checkUserVote(uid) {
+      const voteRef = doc(db, "votes", uid);
+      const voteSnap = await getDoc(voteRef);
+      if (voteSnap.exists()) {
+        userVotedTeam = voteSnap.data().teamId;
+      } else {
+        userVotedTeam = null;
+      }
+      renderTeamsGrid();
+    }
+
+    // Cập nhật giao diện theo trạng thái khóa/mở
+    function updateUIState() {
+      const banner = document.getElementById("status-banner");
+      
+      if (!isVotingOpen) {
+        banner.classList.remove("hidden", "bg-emerald-100", "text-emerald-800");
+        banner.classList.add("bg-red-100", "text-red-800");
+        banner.innerHTML = "🔒 Cổng bình chọn hiện đang ĐÓNG. Vui lòng chờ ban tổ chức mở lại!";
+      } else {
+        banner.classList.remove("hidden", "bg-red-100", "text-red-800");
+        banner.classList.add("bg-emerald-100", "text-emerald-800");
+        banner.innerHTML = "🟢 Cổng bình chọn đang MỞ. Hãy chọn đội thi bạn yêu thích!";
+      }
+
+      // Cập nhật nút cho Admin
+      const lockBtn = document.getElementById("toggle-lock-btn");
+      const adminStatus = document.getElementById("admin-lock-status");
+      if (lockBtn && adminStatus) {
+        if (isVotingOpen) {
+          lockBtn.textContent = "🔒 Khóa bình chọn ngay";
+          lockBtn.className = "bg-amber-500 hover:bg-amber-600 text-slate-900 px-5 py-2.5 rounded-xl font-bold text-sm shadow transition";
+          adminStatus.innerHTML = '<span class="text-emerald-600">● Đang mở bình chọn</span>';
+        } else {
+          lockBtn.textContent = "🔓 Mở lại bình chọn";
+          lockBtn.className = "bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow transition";
+          adminStatus.innerHTML = '<span class="text-red-600">● Đã khóa bình chọn</span>';
+        }
+      }
+
+      renderTeamsGrid();
+    }
+
+    // Render 6 thẻ đội thi
+    function renderTeamsGrid() {
+      const grid = document.getElementById("teams-grid");
+      const statusText = document.getElementById("vote-status-text");
+      if (!grid) return;
+
+      if (userVotedTeam) {
+        const teamObj = TEAMS.find(t => t.id === userVotedTeam);
+        statusText.innerHTML = `<span class="text-emerald-600">Đã bình chọn cho ${teamObj ? teamObj.name : ''}</span>`;
+      } else {
+        statusText.innerHTML = `<span class="text-amber-600">Chưa bình chọn (Bạn có 1 lượt)</span>`;
+      }
+
+      grid.innerHTML = TEAMS.map(team => {
+        const isSelected = userVotedTeam === team.id;
+        const isDisabled = !isVotingOpen || userVotedTeam !== null;
+
+        let btnHtml = "";
+        if (isSelected) {
+          btnHtml = `<button disabled class="w-full py-2.5 rounded-xl font-bold bg-emerald-600 text-white cursor-default">✓ Đã bình chọn</button>`;
+        } else if (userVotedTeam !== null) {
+          btnHtml = `<button disabled class="w-full py-2.5 rounded-xl font-semibold bg-slate-100 text-slate-400 cursor-not-allowed">Đã hết lượt</button>`;
+        } else if (!isVotingOpen) {
+          btnHtml = `<button disabled class="w-full py-2.5 rounded-xl font-semibold bg-slate-100 text-slate-400 cursor-not-allowed">Đang khóa</button>`;
+        } else {
+          btnHtml = `<button onclick="castVote('${team.id}', '${team.name}')" class="w-full py-2.5 rounded-xl font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition">Bình chọn</button>`;
+        }
+
+        return `
+          <div class="bg-white rounded-2xl p-6 border ${isSelected ? 'border-emerald-500 ring-2 ring-emerald-500/20' : 'border-slate-200'} shadow-sm flex flex-col justify-between transition hover:shadow-md">
+            <div>
+              <div class="h-24 rounded-xl bg-gradient-to-r ${team.color} flex items-center justify-center text-white text-3xl font-extrabold mb-4 shadow-inner">
+                ${team.name}
+              </div>
+              <h4 class="text-xl font-bold text-slate-800 mb-1">${team.name}</h4>
+              <p class="text-sm text-slate-500 mb-6">Nhấn nút bên dưới để gửi phiếu bầu ẩn danh cho ${team.name}.</p>
+            </div>
+            ${btnHtml}
+          </div>
+        `;
+      }).join("");
+    }
+
+    // Render biểu đồ kết quả cho Admin
+    function renderAdminResults() {
+      const container = document.getElementById("results-container");
+      const totalEl = document.getElementById("total-votes-count");
+      if (!container) return;
+
+      const total = Object.values(voteCounts).reduce((a, b) => a + (Number(b) || 0), 0);
+      totalEl.textContent = total;
+
+      container.innerHTML = TEAMS.map(team => {
+        const count = Number(voteCounts[team.id]) || 0;
+        const percent = total > 0 ? Math.round((count / total) * 100) : 0;
+
+        return `
+          <div>
+            <div class="flex justify-between text-sm font-bold mb-1.5">
+              <span class="text-slate-700">${team.name}</span>
+              <span class="text-indigo-600">${count} phiếu (${percent}%)</span>
+            </div>
+            <div class="w-full bg-slate-100 rounded-full h-4 overflow-hidden">
+              <div class="bg-gradient-to-r ${team.color} h-4 rounded-full transition-all duration-500" style="width: ${percent}%"></div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    // Các hàm tương tác gắn vào window
+    window.loginWithGoogle = async () => {
+      const provider = new GoogleAuthProvider();
+      try {
+        await signInWithPopup(auth, provider);
+      } catch (err) {
+        alert("Lỗi đăng nhập Google: " + err.message);
+      }
+    };
+
+    window.loginAdmin = async (e) => {
+      e.preventDefault();
+      const email = document.getElementById("admin-email").value.trim();
+      const pass = document.getElementById("admin-password").value;
+      const errEl = document.getElementById("admin-error");
+
+      if (email !== ADMIN_EMAIL) {
+        errEl.textContent = "Tài khoản này không có quyền quản trị!";
+        errEl.classList.remove("hidden");
+        return;
+      }
+
+      try {
+        await signInWithEmailAndPassword(auth, email, pass);
+        errEl.classList.add("hidden");
+        closeAdminModal();
+      } catch (err) {
+        errEl.textContent = "Sai email hoặc mật khẩu!";
+        errEl.classList.remove("hidden");
+      }
+    };
+
+    window.logout = () => signOut(auth);
+
+    window.castVote = async (teamId, teamName) => {
+      if (!currentUser || !isVotingOpen || userVotedTeam) return;
+      if (!confirm(`Xác nhận bình chọn cho ${teamName}? Bạn chỉ được chọn 1 lần duy nhất và không thể thay đổi.`)) return;
+
+      try {
+        const batch = writeBatch(db);
+        // 1. Lưu phiếu ẩn danh (chỉ lưu mã UID ngẫu nhiên và tên đội, tuyệt đối không lưu tên/email người vote)
+        const voteRef = doc(db, "votes", currentUser.uid);
+        batch.set(voteRef, { teamId: teamId, timestamp: Date.now() });
+
+        // 2. Cộng 1 điểm vào bảng tổng kết
+        const tallyRef = doc(db, "system", "tally");
+        batch.update(tallyRef, { [teamId]: increment(1) });
+
+        await batch.commit();
+        userVotedTeam = teamId;
+        renderTeamsGrid();
+        alert(`Bạn đã bình chọn thành công cho ${teamName}!`);
+      } catch (err) {
+        alert("Không thể gửi bình chọn (có thể cổng đã đóng hoặc bạn đã bầu rồi): " + err.message);
+      }
+    };
+
+    window.toggleVotingLock = async () => {
+      try {
+        await updateDoc(doc(db, "system", "settings"), {
+          isOpen: !isVotingOpen
+        });
+      } catch (err) {
+        alert("Lỗi cập nhật trạng thái: " + err.message);
+      }
+    };
+
+    window.resetAllVotes = async () => {
+      if (!confirm("CẢNH BÁO: Toàn bộ số phiếu sẽ về 0 và mọi người có thể bình chọn lại từ đầu. Bạn chắc chắn chứ?")) return;
+      try {
+        const batch = writeBatch(db);
+        // Reset bảng tổng
+        batch.set(doc(db, "system", "tally"), {
+          doi_1: 0, doi_2: 0, doi_3: 0, doi_4: 0, doi_5: 0, doi_6: 0
+        });
+        // Xóa lịch sử đã vote của users
+        const votesSnap = await getDocs(collection(db, "votes"));
+        votesSnap.forEach((d) => batch.delete(d.ref));
+
+        await batch.commit();
+        alert("Đã reset toàn bộ phiếu bình chọn!");
+      } catch (err) {
+        alert("Lỗi khi reset: " + err.message);
+      }
+    };
+
+    window.openAdminModal = () => {
+      document.getElementById("admin-modal").classList.remove("hidden");
+      document.getElementById("admin-modal").classList.add("flex");
+    };
+
+    window.closeAdminModal = () => {
+      document.getElementById("admin-modal").classList.add("hidden");
+      document.getElementById("admin-modal").classList.remove("flex");
+    };
+  </script>
+</body>
+</html>
